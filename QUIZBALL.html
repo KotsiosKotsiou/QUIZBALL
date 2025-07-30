@@ -1,0 +1,416 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trivia Game</title>
+<style>
+  body {
+    font-family: 'Palatino Linotype', 'Palatino', serif;
+    background-color: #fff;
+    color: #1e1e1e;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+  }
+  #app {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  input[type=text] {
+    font-size: 24px;
+    padding: 10px;
+    width: 300px;
+    border-radius: 12px;
+    border: 2px solid #ccc;
+  }
+  button {
+    font-size: 20px;
+    margin: 10px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+  }
+  button:hover {
+    opacity: 0.8;
+  }
+  .category-button, .difficulty-button {
+    background-color: #4682ff;
+    color: white;
+  }
+  .correct-button {
+    background-color: #64c864;
+    color: white;
+  }
+  .incorrect-button {
+    background-color: #dc3c3c;
+    color: white;
+  }
+  .score {
+    font-size: 20px;
+    margin: 10px;
+    font-weight: bold;
+  }
+  .question-image {
+    max-width: 300px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    border: 2px solid #ccc;
+  }
+  .answer-input {
+    font-size: 20px;
+    padding: 10px;
+    width: 600px;
+    border-radius: 12px;
+    border: 2px solid #ffeb3b;
+  }
+  .timer {
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 10px;
+    color: #ff6347;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Trivia Game</h1>
+  <div id="content"></div>
+</div>
+
+<script>
+  const categories = {
+    "History": [1, 2, 3],
+    "Top 5": [2, 3],
+    "Guess the score": [2, 1],
+    "Geography": [1, 2, 3],
+    "Faces": [2, 1, 3,4]
+  };
+
+  const questions = {
+    "History_1": {question: "Which player missed the decisive penalty for italy in the 1994 World cup final shootout", answer: "Roberto Baggio"},
+    "History_2": {question: "Who was the first African nation to reach a Worl Cup Semi-final?", answer: "Morocco"},
+    "History_3": {question: "πρώτη βρετανική ομάδα με ευρωπαϊκό τρόπαιο", answer: "τοτεναμ"},
+    "Top 5_2": {question: "περισσότερα τέρματα στην Εθνική Ισπανίας", answer: "david villa, raul , fernando torres, alvaro morata, david silva "},
+    "Top 5_3": {question: "most assist to messi", answer: "pedro 25 xavi 31 iniesta 37 davi alves 42 suarez 47"},
+    "Guess the score_2": {question: "semi finals euro 2012 Germany Italy", answer: "1-2 ozil balotelli 2"},
+    "Guess the score_1": {question: "semi finals euro 2021 Spain italy", answer: "1-1 morata chiesa"},
+    "Geography_1": {question: "Σε ποια χωρα αγωνίζεται η Λουντογκορετς", answer: "Βουλγαρια"},
+    "Geography_2": {question: "μόνη πόλη στην Ευρώπη με τελικό ucl,mundial και Olympic games", answer: "μαδριτη"},
+    "Geography_3": {question: "από ποια χώρα κατάγεται ο νεαρότερος που έπαιξε σε μουντιαλ", answer: "Βορεια Ιρλανδία"},
+    "Faces_2": {question: "Who is this person?", answer: "akuoilani", image: "images/akuilani.png"},
+    "Faces_1": {question: "Who is this person?", answer: "andriano", image: "images/andriano.png"},
+    "Faces_3": {question: "What is this logo?", answer: "dynamo moscow", image: "images/dynamo moscow.png"},
+    "Faces_4": {question: "What is this logo?", answer: "stjeska", image: "images/stjeska.png"},
+  };
+
+  let state = "enterNames";
+  let team1Name = "", team2Name = "";
+  let team1Score = 0, team2Score = 0;
+  let activeInput = 1;
+  let currentTeam = 1;
+  let selectedCategory = null, selectedDifficulty = null;
+  let userAnswer = "", answerSubmitted = false;
+  let timer = null, timeLeft = 300;
+
+  const questionStatus = {};
+  for (const cat in categories) {
+    categories[cat].forEach(diff => {
+      questionStatus[`${cat}_${diff}`] = "unanswered";
+    });
+  }
+
+  const app = document.getElementById("content");
+
+  function render() {
+    app.innerHTML = "";
+    if(state === "enterNames") renderEnterNames();
+    else if(state === "categorySelection") renderCategorySelection();
+    else if(state === "questionScreen") renderQuestionScreen();
+    else if(state === "finalScreen") renderFinalScreen();
+  }
+
+  function renderEnterNames() {
+    const h2 = document.createElement("h2");
+    h2.textContent = "Enter Team Names";
+    app.appendChild(h2);
+
+    const input1 = document.createElement("input");
+    input1.type = "text";
+    input1.placeholder = "Team 1 Name";
+    input1.value = team1Name;
+    input1.style.border = activeInput === 1 ? "3px solid #ffeb3b" : "2px solid #ccc";
+    input1.oninput = e => { team1Name = e.target.value; };
+    input1.onfocus = () => { activeInput = 1; };
+    app.appendChild(input1);
+    app.appendChild(document.createElement("br"));
+
+    const input2 = document.createElement("input");
+    input2.type = "text";
+    input2.placeholder = "Team 2 Name";
+    input2.value = team2Name;
+    input2.style.border = activeInput === 2 ? "3px solid #ffeb3b" : "2px solid #ccc";
+    input2.oninput = e => { team2Name = e.target.value; };
+    input2.onfocus = () => { activeInput = 2; };
+    app.appendChild(input2);
+    app.appendChild(document.createElement("br"));
+
+    const btn = document.createElement("button");
+    btn.textContent = "Start Game";
+    btn.onclick = () => {
+      if(team1Name.trim() === "") team1Name = "Team 1";
+      if(team2Name.trim() === "") team2Name = "Team 2";
+      state = "categorySelection";
+      render();
+    };
+    app.appendChild(btn);
+  }
+
+  function renderCategorySelection() {
+    clearInterval(timer);
+
+    const scoreDiv = document.createElement("div");
+    scoreDiv.className = "score";
+    scoreDiv.textContent = `${team1Name}: ${team1Score} pts   |   ${team2Name}: ${team2Score} pts`;
+    app.appendChild(scoreDiv);
+
+    const turnDiv = document.createElement("div");
+    turnDiv.textContent = `It's ${currentTeam === 1 ? team1Name : team2Name}'s turn`;
+    app.appendChild(turnDiv);
+
+    const instruction = document.createElement("p");
+    instruction.textContent = "Choose a category and difficulty:";
+    app.appendChild(instruction);
+
+    for(const cat in categories) {
+      const catDiv = document.createElement("div");
+      catDiv.style.margin = "15px 0";
+      const catTitle = document.createElement("h3");
+      catTitle.textContent = cat;
+      catTitle.style.color = "#4682ff";
+      catDiv.appendChild(catTitle);
+
+      categories[cat].forEach(diff => {
+        const key = `${cat}_${diff}`;
+        const status = questionStatus[key];
+        if(status === "unanswered") {
+          const btn = document.createElement("button");
+          btn.className = "category-button";
+          btn.textContent = diff;
+          btn.style.marginRight = "10px";
+          btn.onclick = () => {
+            selectedCategory = cat;
+            selectedDifficulty = diff;
+            userAnswer = "";
+            answerSubmitted = false;
+            timeLeft = 360;
+            state = "questionScreen";
+            render();
+            startTimer();
+          };
+          catDiv.appendChild(btn);
+        } else {
+          const span = document.createElement("span");
+          span.textContent = diff;
+          span.style.display = "inline-block";
+          span.style.width = "40px";
+          span.style.height = "40px";
+          span.style.lineHeight = "40px";
+          span.style.marginRight = "10px";
+          span.style.borderRadius = "12px";
+          span.style.color = "#000";
+          span.style.backgroundColor = status === "correct" ? "#64c864" : "#dc3c3c";
+          catDiv.appendChild(span);
+        }
+      });
+      app.appendChild(catDiv);
+    }
+  }
+
+  function renderQuestionScreen() {
+    const key = `${selectedCategory}_${selectedDifficulty}`;
+    const questionObj = questions[key];
+    if(!questionObj) {
+      app.textContent = "No question found.";
+      return;
+    }
+
+    const scoreDiv = document.createElement("div");
+    scoreDiv.className = "score";
+    scoreDiv.textContent = `${team1Name}: ${team1Score} pts   |   ${team2Name}: ${team2Score} pts`;
+    app.appendChild(scoreDiv);
+
+    const turnDiv = document.createElement("div");
+    turnDiv.textContent = `It's ${currentTeam === 1 ? team1Name : team2Name}'s turn`;
+    app.appendChild(turnDiv);
+
+    const timerDiv = document.createElement("div");
+    timerDiv.className = "timer";
+    timerDiv.id = "timer";
+    timerDiv.textContent = `Time left: ${formatTime(timeLeft)}`;
+    app.appendChild(timerDiv);
+
+    const catDiff = document.createElement("h3");
+    catDiff.textContent = `${selectedCategory} | ${selectedDifficulty} point(s)`;
+    catDiff.style.color = "#555";
+    app.appendChild(catDiff);
+
+    if(selectedCategory === "Faces" && questionObj.image) {
+      const img = document.createElement("img");
+      img.src = questionObj.image;
+      img.alt = "Face Image";
+      img.className = "question-image";
+      app.appendChild(img);
+    }
+    
+
+    const qText = document.createElement("p");
+    qText.textContent = questionObj.question;
+    qText.style.fontSize = "24px";
+    qText.style.fontWeight = "bold";
+    app.appendChild(qText);
+
+    if(!answerSubmitted) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Type your answer here...";
+      input.value = userAnswer;
+      input.className = "answer-input";
+      input.oninput = e => { userAnswer = e.target.value; };
+      input.onkeypress = e => { if(e.key === "Enter") submitAnswer(); };
+      app.appendChild(input);
+      app.appendChild(document.createElement("br"));
+
+      const submitBtn = document.createElement("button");
+      submitBtn.textContent = "Submit Answer";
+      submitBtn.onclick = submitAnswer;
+      app.appendChild(submitBtn);
+    } else {
+      const yourAnswer = document.createElement("p");
+      yourAnswer.innerHTML = `<b>Your answer:</b> ${userAnswer}`;
+      yourAnswer.style.fontSize = "20px";
+      app.appendChild(yourAnswer);
+
+      const correctAnswer = document.createElement("p");
+      correctAnswer.innerHTML = `<b>Correct answer:</b> ${questionObj.answer}`;
+      correctAnswer.style.fontSize = "20px";
+      app.appendChild(correctAnswer);
+
+      const correctBtn = document.createElement("button");
+      correctBtn.textContent = "Mark Correct";
+      correctBtn.className = "correct-button";
+      correctBtn.onclick = () => {
+        questionStatus[key] = "correct";
+        updateScore(currentTeam, selectedDifficulty);
+        nextTurn();
+      };
+      app.appendChild(correctBtn);
+
+      const incorrectBtn = document.createElement("button");
+      incorrectBtn.textContent = "Mark Incorrect";
+      incorrectBtn.className = "incorrect-button";
+      incorrectBtn.onclick = () => {
+        questionStatus[key] = "incorrect";
+        nextTurn();
+      };
+      app.appendChild(incorrectBtn);
+    }
+
+    const backBtn = document.createElement("button");
+    backBtn.textContent = "Back to Categories";
+    backBtn.onclick = () => {
+      state = "categorySelection";
+      render();
+    };
+    app.appendChild(document.createElement("br"));
+    app.appendChild(backBtn);
+  }
+
+  function formatTime(seconds) {
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      timeLeft--;
+      const t = document.getElementById("timer");
+      if(t) t.textContent = `Time left: ${formatTime(timeLeft)}`;
+      if(timeLeft <= 0) {
+        clearInterval(timer);
+        if (!answerSubmitted) {
+          answerSubmitted = true;
+          render();
+        }
+      }
+    }, 1000);
+  }
+
+  function submitAnswer() {
+    if(userAnswer.trim() === "") {
+      alert("Please enter an answer!");
+      return;
+    }
+    answerSubmitted = true;
+    clearInterval(timer);
+    render();
+  }
+
+  function updateScore(team, points) {
+    if(team === 1) team1Score += points;
+    else team2Score += points;
+  }
+
+  function nextTurn() {
+    const unanswered = Object.values(questionStatus).some(status => status === "unanswered");
+    if(!unanswered) {
+      state = "finalScreen";
+    } else {
+      currentTeam = currentTeam === 1 ? 2 : 1;
+      state = "categorySelection";
+    }
+    render();
+  }
+
+  function renderFinalScreen() {
+    const h2 = document.createElement("h2");
+    h2.textContent = "Game Over!";
+    app.appendChild(h2);
+
+    const scoreDiv = document.createElement("div");
+    scoreDiv.className = "score";
+    scoreDiv.textContent = `${team1Name}: ${team1Score} pts   |   ${team2Name}: ${team2Score} pts`;
+    app.appendChild(scoreDiv);
+
+    const winnerText = team1Score > team2Score
+      ? `${team1Name} wins! 🎉`
+      : team2Score > team1Score
+      ? `${team2Name} wins! 🎉`
+      : "It's a tie!";
+    const winnerDiv = document.createElement("h3");
+    winnerDiv.textContent = winnerText;
+    winnerDiv.style.color = "#4682ff";
+    app.appendChild(winnerDiv);
+
+    const restartBtn = document.createElement("button");
+    restartBtn.textContent = "Play Again";
+    restartBtn.onclick = () => {
+      team1Score = 0;
+      team2Score = 0;
+      currentTeam = 1;
+      state = "enterNames";
+      for (const k in questionStatus) questionStatus[k] = "unanswered";
+      render();
+    };
+    app.appendChild(restartBtn);
+  }
+
+  render();
+</script>
+</body>
+</html>
